@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>셔니가 만든 프로필 꾸미기!</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAbjFneyuQV6w942jtXY0ns4VY24VNGZqg",
+    authDomain: "sherny-ff778.firebaseapp.com",
+    projectId: "sherny-ff778",
+    storageBucket: "sherny-ff778.firebasestorage.app",
+    messagingSenderId: "356203206278",
+    appId: "1:356203206278:web:f6ce021a7f927538dba307"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 전역으로 함수들 노출
+  window.db = db;
+  window.firebaseFns = { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, onSnapshot, query, orderBy };
+  
+  // 앱 시작 신호
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+  body { background-color: #ffe6e6; font-family: sans-serif; }
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+  <!-- 로그인 화면 -->
+  <div id="login-screen" class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center border-4 border-pink-300">
+    <h1 class="text-2xl font-bold text-pink-600 mb-2">💗 셔니가 만든 프로필 꾸미기! 💗</h1>
+    <p class="text-gray-500 text-sm mb-4">비밀 열쇠를 입력하고 입장하세요</p>
+    
+    <div class="mb-4 text-left">
+      <label class="block text-xs font-bold text-gray-600 mb-1">비밀 열쇠 (입장 번호)</label>
+      <input type="password" id="input-key" placeholder="입장 번호를 입력하세요" class="w-full p-3 border-2 border-pink-200 rounded-xl focus:outline-none focus:border-pink-400">
+      <p class="text-[11px] text-pink-500 mt-1">💡 관리자 번호도 여기에 적을 수 있어요!</p>
+    </div>
+
+    <div id="nickname-box" class="mb-4 text-left hidden">
+      <label class="block text-xs font-bold text-gray-600 mb-1">내 별명 정하기</label>
+      <input type="text" id="input-nickname" placeholder="사용할 별명을 입력하세요" class="w-full p-3 border-2 border-pink-200 rounded-xl focus:outline-none focus:border-pink-400">
+      <p class="text-[11px] text-red-500 mt-1">⚠️ 주의: 진짜 이름을 적으면 다른 사람들이 볼 수 있어요!</p>
+    </div>
+
+    <button onclick="tryLogin()" class="w-full bg-pink-400 hover:bg-pink-500 text-white font-bold p-3 rounded-xl shadow-md transition">🚪 열기</button>
+  </div>
+
+  <!-- 메인 앱 화면 (숨김 상태로 시작) -->
+  <div id="main-app" class="hidden w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border-4 border-pink-300 flex flex-col h-[85vh]">
+    <!-- 상단 헤더 -->
+    <div class="bg-pink-100 p-4 text-center border-b-2 border-pink-200">
+      <h2 id="header-title" class="text-xl font-bold text-pink-600">💗 셔니가 만든 프로필 꾸미기! 💗</h2>
+      <p id="user-badge" class="text-xs text-pink-500 font-bold mt-1"></p>
+    </div>
+
+    <!-- 내용 영역 -->
+    <div id="content-area" class="flex-1 overflow-y-auto p-4">
+      <!-- 탭 내용이 여기에 동적으로 들어갑니다 -->
+    </div>
+
+    <!-- 하단 메뉴바 -->
+    <div class="flex border-t-2 border-pink-200 bg-white">
+      <button onclick="switchTab('my')" class="flex-1 py-3 text-center text-xs font-bold text-pink-600 hover:bg-pink-50 border-r border-pink-100">🏠 내 방</button>
+      <button onclick="switchTab('friends')" class="flex-1 py-3 text-center text-xs font-bold text-pink-600 hover:bg-pink-50 border-r border-pink-100">👩‍👧‍👦 친구 동네</button>
+      <button onclick="switchTab('chat')" class="flex-1 py-3 text-center text-xs font-bold text-pink-600 hover:bg-pink-50">💬 다같이 채팅방</button>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = { nickname: '', isAdmin: false };
+
+    window.addEventListener('firebase-ready', () => {
+      console.log("파이어베이스 준비 완료!");
+    });
+
+    function tryLogin() {
+      const key = document.getElementById('input-key').value.trim();
+      const nickBox = document.getElementById('nickname-box');
+      const nickInput = document.getElementById('input-nickname');
+
+      if (key === 'shjshj12120160524') {
+        currentUser = { nickname: '관리자 뽀그리', isAdmin: true };
+        startApp();
+      } else if (key === 'ILoveyou') {
+        if (nickBox.classList.contains('hidden')) {
+          nickBox.classList.remove('hidden');
+          alert("비밀번호가 맞았어요! 사용할 별명을 적고 [열기]를 한 번 더 눌러주세요.");
+          return;
+        }
+        const nickname = nickInput.value.trim();
+        if (!nickname) {
+          alert("별명을 적어주세요!");
+          return;
+        }
+        currentUser = { nickname: nickname, isAdmin: false };
+        startApp();
+      } else {
+        alert("입장 번호가 틀렸어요! 다시 확인해 주세요.");
+      }
+    }
+
+    function startApp() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('hidden');
+      document.getElementById('user-badge').innerText = currentUser.isAdmin ? "👑 왕관(관리자) 뱃지 활성화됨" : `✨ ${currentUser.nickname}님 환영해요!`;
+      switchTab('my');
+    }
+
+    function switchTab(tab) {
+      const area = document.getElementById('content-area');
+      if (tab === 'my') {
+        area.innerHTML = `
+          <div class="text-center">
+            <h3 class="font-bold text-pink-600 mb-2">내 프로필 꾸미기</h3>
+            <p class="text-xs text-gray-500 mb-4">배경, 프로필, 상태메시지를 마음대로 바꿔보세요!</p>
+            <div class="bg-pink-50 p-4 rounded-xl border border-pink-200 mb-4">
+              <p class="font-bold text-gray-700">${currentUser.nickname}</p>
+              <p class="text-xs text-gray-500 mt-1">"오늘도 행복한 하루~"</p>
+            </div>
+            <button onclick="alert('게시물 올리기 기능 작동!')" class="bg-pink-400 text-white px-4 py-2 rounded-xl text-xs font-bold">+ 게시물 올리기</button>
+          </div>
+        `;
+      } else if (tab === 'friends') {
+        area.innerHTML = `
+          <div>
+            <h3 class="font-bold text-pink-600 mb-2 text-center">친구 동네 구경하기</h3>
+            <div id="friend-list" class="space-y-2">
+              <p class="text-xs text-gray-400 text-center">친구들을 불러오는 중...</p>
+            </div>
+          </div>
+        `;
+      } else if (tab === 'chat') {
+        area.innerHTML = `
+          <div class="flex flex-col h-full">
+            <h3 class="font-bold text-pink-600 mb-2 text-center">다같이 채팅방</h3>
+            <div class="flex-1 bg-gray-50 border border-pink-200 rounded-xl p-2 overflow-y-auto mb-2 text-xs" id="chat-messages">
+              <p class="text-gray-400 text-center">대화를 시작해보세요!</p>
+            </div>
+            <div class="flex gap-1">
+              <input type="text" id="chat-input" placeholder="메시지를 입력하세요" class="flex-1 p-2 border border-pink-200 rounded-xl text-xs focus:outline-none">
+              <button onclick="sendChat()" class="bg-pink-400 text-white px-3 py-2 rounded-xl text-xs font-bold">전송</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function sendChat() {
+      const input = document.getElementById('chat-input');
+      const box = document.getElementById('chat-messages');
+      if (!input.value.trim()) return;
+      box.innerHTML += `<div class="mb-1"><b>${currentUser.nickname}:</b> ${input.value}</div>`;
+      input.value = '';
+      box.scrollTop = box.scrollHeight;
+    }
+  </script>
+</body>
+</html>
